@@ -361,7 +361,6 @@ model_full = fit_varx_ridge(
     df_train=df_full,
     endog_cols=ENDOG_ALL,
     exog_cols=EXOG_ALL,
-    p=P,
     ridge=RIDGE_FULL,
 )
 
