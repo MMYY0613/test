@@ -74,7 +74,7 @@ for path in sorted(IN_DIR.glob("*.csv")):
     df = df.dropna(subset=["topix17"])
 
     # セクターごとにスコア集約（合計でも平均でもOK。ここでは合計）
-    s17 = df.groupby("topix17")["sentiment"].sum()
+    s17 = df.groupby("topix17")["sentiment"].mean()
 
     rec = {"Date": date}
     for name in TOPIX17:
