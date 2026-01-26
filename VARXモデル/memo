@@ -1,1 +1,4 @@
 curl -o download-frozen-image-v2.sh https://raw.githubusercontent.com/moby/moby/master/contrib/download-frozen-image-v2.sh
+# Windowsのシステムのプロキシ設定をGit Bashに引き継ぐおまじない
+export http_proxy=$(netsh winhttp show proxy | grep "プロキシ サーバー" | awk '{print $3}')
+export https_proxy=$http_proxy
