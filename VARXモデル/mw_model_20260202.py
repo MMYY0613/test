@@ -18,8 +18,8 @@ warnings.simplefilter('ignore')
 # 1. 設定・定数
 # =========================================================
 CONFIG = {
-    "data_path": "./data/all_q_merged_new.csv",
-    "output_dir": "./output_mw_new",
+    "data_path": "./data/all_q_merged_new_tmp.csv",
+    "output_dir": "./output_mw_new_tmp_3",
     "test_steps": 4,
     "pc_max": 3,
     "p_lag": 1,
@@ -485,7 +485,7 @@ def plot_connected_forecasts(window_root, save_root, df_raw, meta, model_subdir=
         ax.plot(
             df_raw.index, df_raw[orig_name],
             color="#333333", lw=1.5,
-            marker='o', markersize=3, alpha=0.55,
+            marker='o', markersize=3, alpha=0.7,
             label="実績値",
             zorder=2
         )
@@ -507,7 +507,7 @@ def plot_connected_forecasts(window_root, save_root, df_raw, meta, model_subdir=
                 color=colors[p],
                 linestyle='--',
                 marker='o', markersize=3,   # ← 4.5 → 3
-                lw=2.0, alpha=0.95,         # ← 2.6 → 2.0
+                lw=1.5, alpha=0.9,         # ← 2.6 → 2.0
                 label=f"パターン{p+1} (RMSE: {avg_rmse:.3f})",
                 zorder=5
             )
@@ -884,17 +884,17 @@ def main():
                         full_display_range, df_raw.loc[full_display_range, orig_name],
                         label="実績値",
                         color="#333333", lw=1.5,
-                        marker='o', markersize=3, alpha=0.55,
+                        marker='o', markersize=3, alpha=0.7,
                         zorder=2
                     )
                     # 予測：太め、点大きめ、白縁で埋もれ防止、前面
                     plt.plot(
                         te_actual_dates, pred_levels,
                         label="予測値 (逐次)",
-                        color="red", lw=2.8, linestyle="--",
+                        color="red", lw=1.5, linestyle="--",
                         marker="o", markersize=3,
                         markerfacecolor="red", markeredgecolor="red",
-                        alpha=0.95, zorder=5
+                        alpha=0.9, zorder=5
                     )
                     # テスト期間の背景
                     plt.axvspan(te_actual_dates[0], te_actual_dates[-1], color='gray', alpha=0.1, label='予測対象期間')
