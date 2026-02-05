@@ -1,11 +1,167 @@
-curl -o download-frozen-image-v2.sh https://raw.githubusercontent.com/moby/moby/master/contrib/download-frozen-image-v2.sh
-# Windowsのシステムのプロキシ設定をGit Bashに引き継ぐおまじない
-export http_proxy=$(netsh winhttp show proxy | grep "プロキシ サーバー" | awk '{print $3}')
-export https_proxy=$http_proxy
+\documentclass[a4paper,11pt]{article}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage[margin=25mm]{geometry}
 
-# プロキシ情報を抽出（画像で打っていただいたものと同じです）
-export http_proxy=$(netsh winhttp show proxy | grep "プロキシ サーバー" | awk '{print $3}')
-export https_proxy=$http_proxy
+\title{VARX推定と（係数制約つき）最小二乗のメモ}
+\author{}
+\date{}
 
-# 接続テスト（これでおっけーと出れば通信成功です）
-curl -I https://google.com | grep "HTTP/"
+\begin{document}
+\maketitle
+
+\section{係数制約つき最小二乗（box制約）}
+
+各方程式（あるいは各ターゲット）$j$について、係数ベクトル $\theta_j$ を
+\begin{equation}
+  \min_{\theta_j}\ \|y_j - X\theta_j\|_2^2
+  \quad \text{s.t.}\quad \ell \le \theta_j \le u
+\end{equation}
+の形で推定する（$\ell,u$ は要素ごとの下限・上限）。
+
+\paragraph{凸最適化であること（チェック）}
+一般に
+\begin{equation}
+  f(d) := \|Ad-b\|_2^2
+\end{equation}
+とおくと
+\begin{align}
+  f(d)
+  &= (Ad-b)^\top(Ad-b) \\
+  &= d^\top A^\top A d - 2 b^\top A d + b^\top b .
+\end{align}
+したがって勾配とヘッセ行列は
+\begin{align}
+  \nabla f(d) &= 2A^\top(Ad-b),\\
+  \nabla^2 f(d) &= 2A^\top A.
+\end{align}
+任意の $z\in\mathbb{R}^n$ に対して
+\begin{equation}
+  z^\top (A^\top A) z = (Az)^\top(Az)=\|Az\|_2^2 \ge 0
+\end{equation}
+なので $A^\top A\succeq 0$（半正定値）であり、$f$ は凸関数。
+
+また可行集合 $\{d:\ell\le d\le u\}$ は直方体（box）で凸集合。
+よって上の問題は「凸二次最適化（box制約つき最小二乗）」。
+
+\paragraph{実装メモ}
+SciPy では \texttt{scipy.optimize.lsq\_linear} が
+\[
+\min\|Ad-b\|_2^2 \ \ \text{s.t.}\ \ \ell\le d\le u
+\]
+を直接解ける（典型的には trust-region reflective / BVLS 系）。
+
+\section{VARX(1) を回帰（最小二乗）に落とす}
+
+VARX(1) を
+\begin{equation}
+  y_t = c + Ay_{t-1} + Bd_t + \varepsilon_t,
+\end{equation}
+とする。次元は
+\[
+y_t\in\mathbb{R}^m,\quad d_t\in\mathbb{R}^k,\quad
+A\in\mathbb{R}^{m\times m},\quad B\in\mathbb{R}^{m\times k},\quad c\in\mathbb{R}^m.
+\]
+
+\paragraph{まとめて線形回帰の形}
+\begin{equation}
+  z_t :=
+  \begin{pmatrix}
+    1\\ y_{t-1}\\ d_t
+  \end{pmatrix}\in\mathbb{R}^{1+m+k},
+  \qquad
+  \Theta := \bigl[\,c\ \ A\ \ B\,\bigr]\in\mathbb{R}^{m\times(1+m+k)}
+\end{equation}
+と置けば
+\begin{equation}
+  y_t = \Theta z_t + \varepsilon_t
+\end{equation}
+と書ける。
+
+\paragraph{スタックして行列式に}
+$t=2,\dots,T$ を行方向に積むと
+\[
+Y :=
+\begin{pmatrix}
+y_2^\top\\
+y_3^\top\\
+\vdots\\
+y_T^\top
+\end{pmatrix}\in\mathbb{R}^{(T-1)\times m},
+\quad
+X :=
+\begin{pmatrix}
+z_2^\top\\
+z_3^\top\\
+\vdots\\
+z_T^\top
+\end{pmatrix}\in\mathbb{R}^{(T-1)\times (1+m+k)},
+\quad
+E :=
+\begin{pmatrix}
+\varepsilon_2^\top\\
+\varepsilon_3^\top\\
+\vdots\\
+\varepsilon_T^\top
+\end{pmatrix}\in\mathbb{R}^{(T-1)\times m}.
+\]
+各行で $y_t^\top = z_t^\top \Theta^\top + \varepsilon_t^\top$ なので
+\begin{equation}
+  Y = X\Theta^\top + E.
+\end{equation}
+
+\paragraph{推定問題（OLS）}
+\begin{equation}
+  \min_{\Theta}\ \|Y - X\Theta^\top\|_F^2.
+\end{equation}
+ここで $\|\cdot\|_F$ は Frobenius ノルム。
+
+\paragraph{方程式ごとに分解できる}
+$Y$ の $i$ 列を $Y_{:,i}$、$\Theta$ の $i$ 行を $\theta_i^\top$ とすると
+\begin{equation}
+  \|Y - X\Theta^\top\|_F^2
+  = \sum_{i=1}^{m}\ \|\,Y_{:,i} - X\theta_i\,\|_2^2.
+\end{equation}
+したがって「$m$ 本の回帰（各ターゲット方程式）を別々に解く」形になる。
+制約や ridge も \emph{各 $i$ に対して} 同様に入れられる。
+
+\section{（制約なし）最小二乗解と ridge（L2正則化）}
+
+\subsection*{制約なし最小二乗}
+\begin{equation}
+  \min_{d}\ \|Ad-b\|_2^2
+\end{equation}
+の一階条件（正規方程式）は
+\begin{equation}
+  A^\top A d = A^\top b.
+\end{equation}
+$A^\top A$ が可逆なら
+\begin{equation}
+  d = (A^\top A)^{-1}A^\top b.
+\end{equation}
+（一般には擬似逆 $d=A^+b$。実装は \texttt{np.linalg.lstsq} が安全。）
+
+\subsection*{Ridge（$\lambda>0$）}
+\begin{equation}
+  \min_{d}\ \|Ad-b\|_2^2 + \lambda\|d\|_2^2
+\end{equation}
+は
+\begin{align}
+  \|Ad-b\|_2^2 + \lambda\|d\|_2^2
+  &= d^\top(A^\top A + \lambda I)d - 2(A^\top b)^\top d + b^\top b .
+\end{align}
+一階条件より
+\begin{equation}
+  (A^\top A + \lambda I)d = A^\top b.
+\end{equation}
+$\lambda>0$ なら $A^\top A+\lambda I\succ 0$（正定値）なので解が一意。
+
+\paragraph{実装メモ（lsq\_linear と ridge の統一）}
+ridge は拡大系
+\[
+\min_d \left\|\begin{pmatrix}A\\ \sqrt{\lambda}I\end{pmatrix}d
+-\begin{pmatrix}b\\ 0\end{pmatrix}\right\|_2^2
+\]
+としても書けるので、box制約つき ridge なら
+\texttt{lsq\_linear} にそのまま渡せる。
+
+\end{document}
